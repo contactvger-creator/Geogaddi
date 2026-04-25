@@ -29,6 +29,18 @@ export class PrimeField {
   static getHarmony(primes: number[]): number {
     return primes.reduce((acc, p) => acc + p, 0) % FIELD_ORDER;
   }
+
+  /**
+   * Scrambles data using the Prime Field before AES pass
+   */
+  static scramble(data: Uint8Array, seed: number): Uint8Array {
+    const scrambled = new Uint8Array(data.length);
+    for (let i = 0; i < data.length; i++) {
+      const p = P_M[(seed + i) % FIELD_ORDER];
+      scrambled[i] = data[i] ^ (p % 256);
+    }
+    return scrambled;
+  }
 }
 
 export type TerrainLevel = -2 | -1 | 0 | 1 | 2;
@@ -55,11 +67,10 @@ export function quantizeMessage(text: string): TerrainLevel[] {
 
 /**
  * Procedural Geoglyph Generator (SHA3-512 based)
- * Generates parameters for line-art ground-marks
  */
 export async function generateGeoglyphSeeds(payload: string) {
   const msgUint8 = new TextEncoder().encode(payload);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8); // Using SHA-256 as SHA3 isn't native, but concept remains
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgUint8);
   const hashArray = Array.from(new Uint8Array(hashBuffer));
   
   const nSpines = (hashArray[0] % 11) + 5;
@@ -72,8 +83,10 @@ export async function generateGeoglyphSeeds(payload: string) {
   };
 }
 
-export async function encryptPayload(message: string, pass: string): Promise<string> {
+export async function encryptPayload(message: string, pass: string, bioSalt: string = ""): Promise<string> {
   const enc = new TextEncoder();
+  const saltBase = "geogaddi-v2-system-" + bioSalt;
+  
   const passwordKey = await crypto.subtle.importKey(
     "raw",
     enc.encode(pass),
@@ -85,8 +98,8 @@ export async function encryptPayload(message: string, pass: string): Promise<str
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: enc.encode("geogaddi-salt"),
-      iterations: 100000,
+      salt: enc.encode(saltBase),
+      iterations: 250000, // Increased iterations for higher security
       hash: "SHA-256"
     },
     passwordKey,
@@ -95,11 +108,16 @@ export async function encryptPayload(message: string, pass: string): Promise<str
     ["encrypt"]
   );
 
+  // Pre-scramble the message data
+  const rawData = enc.encode(message);
+  const seedForScramble = pass.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % FIELD_ORDER;
+  const scrambledData = PrimeField.scramble(rawData, seedForScramble);
+
   const iv = crypto.getRandomValues(new Uint8Array(12));
   const ciphertext = await crypto.subtle.encrypt(
     { name: "AES-GCM", iv },
     key,
-    enc.encode(message)
+    scrambledData
   );
 
   const combined = new Uint8Array(iv.length + ciphertext.byteLength);
@@ -109,8 +127,10 @@ export async function encryptPayload(message: string, pass: string): Promise<str
   return btoa(String.fromCharCode(...combined));
 }
 
-export async function decryptPayload(encoded: string, pass: string): Promise<string> {
+export async function decryptPayload(encoded: string, pass: string, bioSalt: string = ""): Promise<string> {
   const enc = new TextEncoder();
+  const saltBase = "geogaddi-v2-system-" + bioSalt;
+  
   const combined = new Uint8Array(atob(encoded).split("").map(c => c.charCodeAt(0)));
   const iv = combined.slice(0, 12);
   const ciphertext = combined.slice(12);
@@ -126,8 +146,8 @@ export async function decryptPayload(encoded: string, pass: string): Promise<str
   const key = await crypto.subtle.deriveKey(
     {
       name: "PBKDF2",
-      salt: enc.encode("geogaddi-salt"),
-      iterations: 100000,
+      salt: enc.encode(saltBase),
+      iterations: 250000,
       hash: "SHA-256"
     },
     passwordKey,
@@ -136,11 +156,16 @@ export async function decryptPayload(encoded: string, pass: string): Promise<str
     ["decrypt"]
   );
 
-  const decrypted = await crypto.subtle.decrypt(
+  const decryptedScrambled = await crypto.subtle.decrypt(
     { name: "AES-GCM", iv },
     key,
     ciphertext
   );
 
-  return new TextDecoder().decode(decrypted);
+  // Post-descramble
+  const seedForScramble = pass.split('').reduce((a, b) => a + b.charCodeAt(0), 0) % FIELD_ORDER;
+  const rawData = PrimeField.scramble(new Uint8Array(decryptedScrambled), seedForScramble);
+
+  return new TextDecoder().decode(rawData);
 }
+

@@ -76,6 +76,47 @@ export default function App() {
   const [activeCiphertext, setActiveCiphertext] = useState<string | null>(null); 
   const [encodedPayload, setEncodedPayload] = useState<{ message: string, pass: string } | null>(null);
   const [vault, setVault] = useState<VaultItem[]>([]);
+  const [bioSalt, setBioSalt] = useState<string>("");
+
+  // Panic Key Logic
+  const handlePanic = useCallback(() => {
+    setMessage('');
+    setPassword('');
+    setRecoveredMessage(null);
+    setActiveCiphertext(null);
+    setEncodedPayload(null);
+    setArtifactFile(null);
+    setSelectedVideo(null);
+    setReconstructedVideoUrl(null);
+    setCurrentAppState('WRITE');
+    setProcessingMsg("SYSTEM PURGED. ALL LOCAL BUFFERS WIPED.");
+    setActiveTab('encode');
+  }, []);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.shiftKey && e.key === 'Escape') {
+        handlePanic();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handlePanic]);
+
+  const calculateFileHash = async (file: File) => {
+    const arrayBuffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest('SHA-256', arrayBuffer);
+    const hashArray = Array.from(new Uint8Array(hashBuffer));
+    return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+  };
+
+  useEffect(() => {
+    if (artifactFile) {
+      calculateFileHash(artifactFile).then(setBioSalt);
+    } else {
+      setBioSalt("");
+    }
+  }, [artifactFile]);
 
   useEffect(() => {
     const saved = localStorage.getItem('phg_vault');
@@ -185,7 +226,7 @@ export default function App() {
       await new Promise(r => setTimeout(r, 800));
 
       // Real Encryption Channel
-      const ciphertext = await encryptPayload(message, password);
+      const ciphertext = await encryptPayload(message, password, bioSalt);
       setActiveCiphertext(ciphertext);
       setEncodedPayload({ message, pass: password });
 
@@ -221,7 +262,7 @@ export default function App() {
 
       if (activeCiphertext) {
         try {
-          const decrypted = await decryptPayload(activeCiphertext, password);
+          const decrypted = await decryptPayload(activeCiphertext, password, bioSalt);
           setRecoveredMessage(decrypted);
           setCurrentAppState('DECRYPTED');
         } catch (err) {
@@ -278,7 +319,7 @@ export default function App() {
       {/* Green Thermal Glow Footer */}
       <div className="fixed bottom-0 left-0 right-0 h-32 bg-gradient-to-t from-telemetry-green/20 via-telemetry-green/5 to-transparent pointer-events-none z-0" />
       
-      <DashboardHeader />
+      <DashboardHeader onPanic={handlePanic} />
 
       <main className="flex-1 p-[var(--spacing-phi-3)] md:p-[var(--spacing-phi-4)] grid grid-cols-1 lg:grid-cols-12 gap-[var(--spacing-phi-3)]">
         {/* Left Column: Visual Channels & Telemetry */}
@@ -443,6 +484,12 @@ export default function App() {
                   </div>
 
                   <div className="flex flex-col gap-2">
+                    {bioSalt && (
+                      <div className="mb-1 flex items-center gap-2 px-3 py-1.5 bg-accent-blue/10 border border-accent-blue/30 text-accent-blue rounded-xs animate-pulse">
+                        <ShieldCheck size={14} />
+                        <span className="text-[9px] font-mono font-bold uppercase tracking-tighter">BIOMETRIC SALT ACTIVE: KEY HARDENED</span>
+                      </div>
+                    )}
                     <label className="text-[10px] font-mono text-white/40 uppercase block tracking-widest">
                       Recovery Password
                     </label>

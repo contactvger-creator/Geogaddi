@@ -1,10 +1,18 @@
 import React from 'react';
 
-const DashboardHeader: React.FC = () => {
+interface DashboardHeaderProps {
+  onPanic?: () => void;
+}
+
+const DashboardHeader: React.FC<DashboardHeaderProps> = ({ onPanic }) => {
   return (
     <header className="flex flex-col md:flex-row justify-between items-start md:items-center p-[var(--spacing-phi-3)] border-b border-white/10 gap-[var(--spacing-phi-3)] bg-space-black/40 backdrop-blur-md">
       <div className="flex items-center gap-[var(--spacing-phi-3)]">
-        <div className="w-[var(--spacing-phi-1)] h-phi-4 bg-nasa-blue shadow-[0_0_15px_#003399]" />
+        <div 
+          onClick={onPanic}
+          className="w-[var(--spacing-phi-1)] h-phi-4 bg-nasa-blue shadow-[0_0_15px_#003399] cursor-pointer hover:bg-nasa-red transition-colors" 
+          title="PURGE SYSTEM (PANIC)"
+        />
         <div>
           <h1 className="text-[var(--spacing-phi-4)] leading-none font-bold uppercase tracking-tighter drop-shadow-sm flex">
             {"Geogaddi".split('').map((letter, i) => (
@@ -13,13 +21,20 @@ const DashboardHeader: React.FC = () => {
               </span>
             ))}
           </h1>
-          <p className="text-[10px] font-mono text-white/50 uppercase tracking-[0.2em] mt-1.5">
-            5-Channel Cryptographic Steganography · NASA NHB 8071.1
+          <p className="text-[10px] font-mono text-white/50 uppercase tracking-[0.2em] mt-1.5 flex items-center gap-2">
+            5120-BIT HARDENED STEGANOGRAPHY · NASA NHB 8071.1
+            <span className="px-1.5 py-0.5 bg-instrument-blue/20 text-accent-blue border border-accent-blue/30 rounded-sm text-[8px] animate-pulse">HARDENED</span>
           </p>
         </div>
       </div>
       
       <div className="flex gap-[var(--spacing-phi-3)] items-center flex-wrap">
+        <button 
+          onClick={onPanic}
+          className="px-3 py-1 bg-nasa-red/20 border border-nasa-red/40 text-nasa-red text-[10px] font-mono font-bold uppercase hover:bg-nasa-red hover:text-white transition-all shadow-[0_0_10px_rgba(252,61,33,0.2)]"
+        >
+          Purge (Panic)
+        </button>
         <div className="flex items-center group">
           <span className="status-led led-caution animate-pulse shadow-[0_0_12px_#FFB800]" />
           <span className="text-[10px] font-mono text-amber font-bold uppercase tracking-wider group-hover:text-white transition-colors">Interface Heat</span>
