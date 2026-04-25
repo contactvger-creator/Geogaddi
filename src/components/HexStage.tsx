@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useMemo } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion, AnimatePresence } from 'framer-motion';
 
 interface HexStageProps {
   state: 0 | 1 | 2; // Write (blank), Encrypted (shielded), Decrypted (unicursal)

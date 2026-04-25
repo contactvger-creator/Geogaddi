@@ -24,6 +24,7 @@ import DashboardHeader from './components/DashboardHeader';
 import HexStage from './components/HexStage';
 import TelemetryGauges from './components/TelemetryGauges';
 import ProceduralGeoglyph from './components/ProceduralGeoglyph';
+import EntropyHeatmap from './components/EntropyHeatmap';
 import { quantizeMessage, generateGeoglyphSeeds, encryptPayload, decryptPayload } from './lib/crypto';
 import { generateGeoglyphSVG } from './lib/geoglyph-io';
 import { SuperstringCompressor } from './lib/superstring';
@@ -330,6 +331,7 @@ export default function App() {
             clayTerrain={clayTerrain} 
           />
           <ProceduralGeoglyph seed={geoglyphSeed} payload={activeCiphertext || undefined} />
+          <EntropyHeatmap input={password} />
           <div className="lg:hidden">
             <TelemetryGauges data={entropyData} />
           </div>
